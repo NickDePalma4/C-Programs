@@ -10,5 +10,8 @@ int main(void) {
         printf("%s\n", input[i]);
         i++;
     }
+    if (input[i] == NULL) {
+        printf("Null pointer exists\n");
+    }
     return 0;
 }
