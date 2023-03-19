@@ -12,7 +12,7 @@ void execute(char **argv) {
         exit(EXIT_FAILURE);
     } else if (pid == 0) {
         if (execvp(*argv, argv) < 0) {
-            printf("ERROR: Execution failed\n");
+            printf("%s: command not found\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     } else {
