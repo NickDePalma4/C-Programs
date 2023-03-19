@@ -1,17 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tokenizer.h"
+#include <unistd.h>
+#include "parse.h"
+#include "execute.h"
 
 int main(void) {
-    char **input = tokenize(getInput());
-    int i = 0;
-    while (input[i] != NULL) {
-        printf("%s\n", input[i]);
-        i++;
-    }
-    if (input[i] == NULL) {
-        printf("Null pointer exists\n");
-    }
-    return 0;
+    char **input; 
+
+    while(1) {
+        input = tokenize(getInput());
+        if (strcmp(input[0], "exit") == 0) {
+            exit(EXIT_SUCCESS);
+        }
+        execute(input);
+    } 
 }

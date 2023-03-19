@@ -1,14 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "tokenizer.h"
+#include "parse.h"
 
 char* getInput() {
     printf("sish> ");
     char *input = NULL;
     size_t length = 0;
     if (getline(&input, &length, stdin) == -1) {
-        perror("User input not read due to error");
+        printf("ERROR: Reading user input\n");
         exit(EXIT_FAILURE);
     }
     int32_t modifier = strlen(input) - 1;
@@ -30,12 +30,10 @@ char** tokenize(char* string) {
         }
     }
 
-    printf("Number of arguments: %d\n", numArgs);
-
     argList = malloc((numArgs + 1) * sizeof(char *));
     
     if (argList == NULL) {
-        perror("Allocation failed");
+        printf("ERROR: Allocation failed\n");
         exit(EXIT_FAILURE);
     }
     saver = input;
