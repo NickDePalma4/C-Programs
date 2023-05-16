@@ -1,0 +1,39 @@
+./htree p2_testcases/p2_tc0 1 2.097933
+./htree p2_testcases/p2_tc0 4 1.607623
+./htree p2_testcases/p2_tc0 16 0.651535
+./htree p2_testcases/p2_tc0 32 0.436165
+./htree p2_testcases/p2_tc0 64 0.235298
+./htree p2_testcases/p2_tc0 128 0.288560
+./htree p2_testcases/p2_tc0 256 0.157733
+
+./htree p2_testcases/p2_tc1 1 6.543055
+./htree p2_testcases/p2_tc1 4 3.205102
+./htree p2_testcases/p2_tc1 16 1.311155
+./htree p2_testcases/p2_tc1 32 0.785214
+./htree p2_testcases/p2_tc1 64 0.477167
+./htree p2_testcases/p2_tc1 128 0.327767
+./htree p2_testcases/p2_tc1 256 0.264187
+
+./htree p2_testcases/p2_tc2 1 11.935574
+./htree p2_testcases/p2_tc2 4 6.405294
+./htree p2_testcases/p2_tc2 16 2.831503
+./htree p2_testcases/p2_tc2 32 1.588131
+./htree p2_testcases/p2_tc2 64 0.964287
+./htree p2_testcases/p2_tc2 128 0.596235
+./htree p2_testcases/p2_tc2 256 0.511639
+
+./htree p2_testcases/p2_tc3 1 16.490929
+./htree p2_testcases/p2_tc3 4 13.365974
+./htree p2_testcases/p2_tc3 16 5.518068
+./htree p2_testcases/p2_tc3 32 3.244809
+./htree p2_testcases/p2_tc3 64 1.879699
+./htree p2_testcases/p2_tc3 128 1.183869
+./htree p2_testcases/p2_tc3 256 0.905995
+
+./htree p2_testcases/p2_tc4 1 39.393700
+./htree p2_testcases/p2_tc4 4 24.764763
+./htree p2_testcases/p2_tc4 16 10.400013
+./htree p2_testcases/p2_tc4 32 6.230730
+./htree p2_testcases/p2_tc4 64 3.772636
+./htree p2_testcases/p2_tc4 128 2.460441
+./htree p2_testcases/p2_tc4 256 1.733704
