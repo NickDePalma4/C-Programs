@@ -77,12 +77,22 @@ However, remember that it is important to develop your own solutions for class a
 
 ## License
 
-**Note:** The code in this repository is provided for the sole purpose of demonstration to potential employers. The code is not licensed for general use or distribution.
+The code in this repository is provided under the MIT License.
 
-By accessing or using this code, you agree to the following terms:
+### MIT License
 
-1. You may only view and run the code for evaluation purposes related to employment opportunities.
-2. You may not reproduce, distribute, modify, or use the code for any other purpose without explicit written permission.
-3. You may not submit this code or any derivative of it for academic or educational purposes, including as part of coursework or assignments.
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to view and run the code contained in this repository, subject to the following conditions:
+
+1. The code may be used for personal, educational, or evaluation purposes.
+2. The code may not be used for commercial purposes without explicit written permission.
+3. The code may not be redistributed or modified without the author's permission.
+4. Any derivative work based on this code must clearly attribute the original author.
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For any questions or inquiries regarding the usage of this code, please contact the author directly.
+
 
 
