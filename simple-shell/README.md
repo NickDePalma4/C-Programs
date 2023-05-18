@@ -6,6 +6,12 @@ This project is a command-line interpreter or shell implementation written in C.
 
 The shell executable is named `sish`, and the source code is located in `sish.c`.
 
+## Compilation
+
+To compile the shell, use the following command:
+
+         gcc sish.c –o sish -Wall -Werror -std=gnu99
+
 ## Usage
 
 1. The shell runs continuously and displays a prompt when waiting for input. The prompt is exactly `sish> `, including the space after the greater than sign. For example:
