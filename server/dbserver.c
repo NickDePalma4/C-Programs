@@ -29,11 +29,17 @@ void Usage(char *progname);
 void PrintOut(int fd, struct sockaddr *addr, size_t addrlen);
 void PrintReverseDNS(struct sockaddr *addr, size_t addrlen);
 void PrintServerSide(int client_fd, int sock_family);
-struct msg putStudent(struct msg message, int server_fd);
-struct msg getStudent(struct msg message, int server_fd);
-
 int  Listen(char *portnum, int *sock_family);
 void* HandleClient(void* arg);
+
+struct msg putStudent(struct msg message, int server_fd);
+struct msg getStudent(struct msg message, int server_fd);
+int openDatabase();
+struct handler_params* initializeHandler(int client_fd, struct sockaddr_storage addr, size_t addrlen, int sock_family);
+void launchHandler(pthread_t* handler, struct handler_params* params);
+char* printClientInfo(struct sockaddr *addr, size_t addrlen);
+int checkBytesReceived(ssize_t bytes_received, char* name);
+void checkBytesSent(ssize_t bytes_sent, char* name);
 
 int numRecords = 0;
 
@@ -53,12 +59,11 @@ int main(int argc, char **argv) {
 
   // Loop forever, accepting a connection from a client and doing
   // an echo trick to it.
+  struct handler_params* data = malloc(sizeof(struct handler_params));
   while (1) {
     struct sockaddr_storage caddr;
     socklen_t caddr_len = sizeof(caddr);
-    int client_fd = accept(listen_fd,
-                           (struct sockaddr *)(&caddr),
-                           &caddr_len);
+    int client_fd = accept(listen_fd, (struct sockaddr *)(&caddr), &caddr_len);
     if (client_fd < 0) {
       if ((errno == EINTR) || (errno == EAGAIN) || (errno == EWOULDBLOCK))
         continue;
@@ -67,21 +72,58 @@ int main(int argc, char **argv) {
     }
 
     pthread_t handler;
-    struct handler_params data;
-    data.client_fd = client_fd;
-    data.addr = (struct sockaddr *)(&caddr);
-    data.addrlen = caddr_len;
-    data.sock_family = sock_family;
-    if (pthread_create(&handler, NULL, HandleClient, &data) != 0) {
-      printf("Failed to create thread: %s\n", strerror(errno));
-      close(client_fd);
-      continue;
-    }
+    data = initializeHandler(client_fd, caddr, caddr_len, sock_family);
+    launchHandler(&handler, data);
   }
-
   // Close socket
   close(listen_fd);
+  free(data);
   return EXIT_SUCCESS;
+}
+
+void* HandleClient(void* arg) {
+  struct handler_params *params = (struct handler_params*) arg;
+  int client_fd = params->client_fd;
+  struct sockaddr *addr = params->addr;
+  size_t addrlen = params->addrlen;
+  
+  int db_fd = openDatabase();
+  if (db_fd == -1) {
+    close(client_fd);
+    return NULL;
+  }
+
+  ssize_t bytes_sent, bytes_received;
+  
+  // Print out information about the client.
+  char* name = printClientInfo(addr, addrlen);
+  while (1) {
+  struct msg message;
+    bytes_received = recv(client_fd, &message, BUF, 0);
+    if (checkBytesReceived(bytes_received, name) != 1) {
+      close(client_fd);
+      return NULL;
+    }
+    if (message.type == PUT) {
+      printf("type: put \n");
+      printf("name: %s \n", message.rd.name);
+      printf("id: %d \n", message.rd.id);
+      message = putStudent(message, db_fd);
+      bytes_sent = write(client_fd, &message, sizeof(struct msg));
+      checkBytesSent(bytes_sent, name);
+    } else if (message.type == GET) {
+      printf("type: get \n");
+      printf("id: %d \n", message.rd.id);
+      message = getStudent(message, db_fd);
+      bytes_sent = write(client_fd, &message, sizeof(struct msg));
+      checkBytesSent(bytes_sent, name);
+    } else {
+      printf("Invalid message type\n");
+      printf("type: %d \n", message.type);
+      printf("name: %s \n", message.rd.name);
+      printf("id: %d \n", message.rd.id);
+    }
+  }
 }
 
 void Usage(char *progname) {
@@ -244,68 +286,61 @@ int Listen(char *portnum, int *sock_family) {
   return listen_fd;
 }
 
-void* HandleClient(void* arg) {
-  struct handler_params *params = (struct handler_params*) arg;
-  int client_fd = params->client_fd;
-  struct sockaddr *addr = params->addr;
-  size_t addrlen = params->addrlen;
-  int sock_family = params->sock_family;
-  int db_fd = open(DB, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR );
-  if (db_fd == -1) {
-    printf("Failed to open database file %s: %s\n", DB, strerror(errno));
-    close(client_fd);
-    return NULL;
+struct handler_params* initializeHandler(int client_fd, struct sockaddr_storage addr, size_t addrlen, int sock_family) {
+  struct handler_params* params = malloc(sizeof(struct handler_params));
+  params->client_fd = client_fd;
+  params->addr = (struct sockaddr *)(&addr);
+  params->addrlen = addrlen;
+  params->sock_family = sock_family;
+  return params;
+}
+
+void launchHandler(pthread_t* handler, struct handler_params* params) {
+  if (pthread_create(handler, NULL, HandleClient, params) != 0) {
+    printf("Failed to create thread: %s\n", strerror(errno));
+    close(params->client_fd);
+    free(params); // Free the dynamically allocated struct
   }
-  // Print out information about the client.
+}
+
+
+char* printClientInfo(struct sockaddr *addr, size_t addrlen) {
+  char* name = malloc(sizeof(char) * 1024);
+  if (name == NULL) {
+    printf("Failed to allocate memory for name\n");
+    return NULL; // Or handle the error in an appropriate way
+  }
   
-  ssize_t bytes_sent, bytes_received;
-
-  PrintOut(client_fd, addr, addrlen);
-  PrintReverseDNS(addr, addrlen);
-  PrintServerSide(client_fd, sock_family);
-  // Loop, reading data and echo'ing it back, until the client
-  // closes the connection.
-  char name[1024];
-  getnameinfo(addr, addrlen, name, 1024, NULL, 0, 0);
-
+  int result = getnameinfo(addr, addrlen, name, 1024, NULL, 0, 0);
+  if (result != 0) {
+    printf("Failed to resolve client name: %s\n", gai_strerror(result));
+    free(name); // Free the allocated memory
+    return NULL; // Or handle the error in an appropriate way
+  }
+  
   printf("\nNew connection from client: %s\n", name);
-  while (1) {
-  struct msg message;
-    bytes_received = recv(client_fd, &message, BUF, 0);
+  return name;
+}
 
-    
-    if (bytes_received == 0) {
-      printf("Client %s disconnected\n", name);
-      close(client_fd);
-      return NULL;
-    } else {
-      printf("\nReceived %ld bytes from %s\n", bytes_received, name);
-    }
 
-    if (message.type == PUT) {
-      printf("type: put \n");
-      printf("name: %s \n", message.rd.name);
-      printf("id: %d \n", message.rd.id);
-      message = putStudent(message, db_fd);
-      bytes_sent = write(client_fd, &message, sizeof(struct msg));
-      if (bytes_sent != sizeof(struct msg)) {
-        printf("Failed to send message to %s\n", name);
-      } else {
-        printf("Successfully sent message to %s\n", name);
-      }
-    } else if (message.type == GET) {
-      printf("type: get \n");
-      printf("id: %d \n", message.rd.id);
-      message = getStudent(message, db_fd);
-      bytes_sent = write(client_fd, &message, sizeof(struct msg));
-      if (bytes_sent != sizeof(struct msg)) {
-        printf("Failed to send message to %s\n", name);
-      } else {
-        printf("Successfully sent message to %s\n", name);
-      }
-    } else {
-      printf("Invalid message type\n");
-    }
+int checkBytesReceived(ssize_t bytesReceived, char* name) {
+  if (bytesReceived == 0) {
+    printf("\nClient %s disconnected\n", name);
+    return 0;
+  } else if (bytesReceived != sizeof(struct msg)) {
+    printf("Failed to receive message from %s\n", name);
+    return 0;
+  } else {
+    printf("Successfully received message from %s\n", name);
+    return 1;
+  }
+}
+
+void checkBytesSent(ssize_t bytesSent, char* name) {
+  if (bytesSent != sizeof(struct msg)) {
+    printf("Failed to send message to %s\n", name);
+  } else {
+    printf("Successfully sent message to %s\n", name);
   }
 }
 
@@ -342,9 +377,18 @@ struct msg getStudent(struct msg message, int db_fd) {
     }
   }
 
-
   response.type = FAIL;
   printf("Failed to read from database\n\n");
   return response;
 
+}
+
+int openDatabase() {
+  int db_fd = open(DB, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+  if (db_fd == -1) {
+    printf("Failed to open database file %s: %s\n", DB, strerror(errno));
+    return -1;
+  } else {
+    return db_fd;
+  }
 }

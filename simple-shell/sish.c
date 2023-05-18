@@ -11,7 +11,7 @@ int count = 0; // Tracks the number of strings in the history array
 // Used to handle the instance of a command being inserted into the array
 // when it is full. Left shifts the array to make room at index 99, where 
 // the value will be stored
-void handleFull(char *command) {
+void handleFullHistoryArray(char *command) {
     free(history[0]); // Clear index 0
     for (int i = 1; i < 100; i++) { // Left shift the array
         history[i - 1] = history[i];
@@ -25,7 +25,7 @@ void addHistory(char *command) {
        history[count] = strdup(command); // If not store new command at index count
        count++; // Increase count by one
     } else { 
-        handleFull(command); // If array is full call handleFull()
+        handleFullHistoryArray(command); // If array is full call handleFullHistoryArray()
     }
 }
 

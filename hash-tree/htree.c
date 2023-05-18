@@ -2,7 +2,7 @@
 #include <stdlib.h>   
 #include <stdint.h>  
 #include <inttypes.h>  
-#include <errno.h>     // for EINTR
+#include <errno.h>     
 #include <fcntl.h>     
 #include <unistd.h>    
 #include <sys/mman.h>
@@ -14,6 +14,7 @@
 #include "common.h"
 
 struct thread_data {
+    int32_t fd; // file descriptor
     off_t size; // size of the file
     int id; // id of the thread
     int numThreads; // number of threads
@@ -25,16 +26,16 @@ struct thread_data {
 void Usage(char*);
 uint32_t jenkins_one_at_a_time_hash(const uint8_t* , uint64_t );
 void* treeHash(void* arg);
+struct stat initialzeFileData(int32_t fd);
+struct thread_data initializeChild(struct thread_data* params, int id);
+struct thread_data initializeRoot(struct stat file, int numThreads, int32_t fd);
 
 // block size
 #define BSIZE 4096
 
-/**
- * Main function
-*/
 int main(int argc, char** argv) {
   int32_t fd;
-  uint32_t nblocks;
+  
   int numThreads = atoi(argv[2]);
 
   // input checking 
@@ -43,6 +44,31 @@ int main(int argc, char** argv) {
 
   // open input file
   fd = open(argv[1], O_RDWR);
+
+  char *hash = malloc(sizeof(char) * 50); 
+  pthread_t root; 
+  struct stat file = initialzeFileData(fd); // initialize thread_data struct
+  struct thread_data data = initializeRoot(file, numThreads, fd); // initialize root thread_data struct
+  double start = GetTime(); // start timer
+  pthread_create(&root, NULL, treeHash, &data); // create root thread
+  pthread_join(root, (void**)&hash); // join root thread
+  
+
+  double end = GetTime();
+  printf("hash value = %s \n", hash);
+  printf("time taken = %f \n", (float)(end - start));
+  free (hash);
+  close(data.fd);
+  return EXIT_SUCCESS;
+}
+
+/**
+ * Initialize thread_data struct
+ * @param filename - name of the file
+ * @param numThreads - number of threads
+ * @return data - thread_data struct
+*/
+struct stat initialzeFileData(int32_t fd) {
   if (fd == -1) {
     perror("open failed");
     exit(EXIT_FAILURE);
@@ -53,42 +79,33 @@ int main(int argc, char** argv) {
         printf("ERROR: file statistics\n");
         exit(EXIT_FAILURE);
     }
-  // calculate nblocks 
+  return file;
+} 
+
+struct thread_data initializeRoot(struct stat file, int numThreads, int32_t fd) {
+  uint32_t nblocks;
   char *addr = mmap(NULL, file.st_size, PROT_READ, MAP_PRIVATE, fd, 0); // mmap the file
   if (addr == MAP_FAILED) { // check for errors
       printf("ERROR: mmap\n");
       exit(EXIT_FAILURE);
   }
   nblocks = file.st_size / BSIZE; // calculate number of blocks
+
   printf(" no. of blocks = %u \n", nblocks);
-
-  double start = GetTime(); 
-
-  //calculate hash value of the input file
   off_t numToParse = 0; 
   off_t fileSize = file.st_size; // get file size
   if (numThreads > 0) { // if there are more than 1 threads
     numToParse = nblocks / numThreads; // calculate number of blocks to parse
   }
 
-  struct thread_data data; // create thread_data struct
-  data.size = fileSize; // set size
-  data.numThreads = numThreads - 1; 
-  data.numToParse = numToParse; 
-  data.data = addr; 
-  data.id = 0; 
-  char *hash = malloc(sizeof(char) * 50); 
-  pthread_t root; 
-  pthread_create(&root, NULL, treeHash, &data); // create root thread
-  pthread_join(root, (void**)&hash); // join root thread
-  
+  struct thread_data threadInfo; // create thread_data struct
+  threadInfo.size = fileSize; // set size
+  threadInfo.numThreads = numThreads - 1; // set number of threads
+  threadInfo.numToParse = numToParse; // set number of blocks to parse
+  threadInfo.data = addr; 
+  threadInfo.id = 0; 
 
-  double end = GetTime();
-  printf("hash value = %s \n", hash);
-  printf("time taken = %f \n", (float)(end - start));
-  free (hash);
-  close(fd);
-  return EXIT_SUCCESS;
+  return threadInfo;
 }
 
 uint32_t jenkins_one_at_a_time_hash(const uint8_t* key, uint64_t length) {
@@ -112,66 +129,62 @@ uint32_t jenkins_one_at_a_time_hash(const uint8_t* key, uint64_t length) {
  * @return hash - hash value of the file
 */
 void* treeHash(void* arg) {
-    struct thread_data *params = (struct thread_data *) arg; // cast arg to thread_data struct
+    struct thread_data* params = (struct thread_data*)arg; 
     int left = (params->id * 2) + 1; // calculate left child id
     int right = (params->id * 2) + 2; // calculate right child id
-    pthread_t leftSide; // create left child thread
-    pthread_t rightSide; // create right child thread
-    char *leftHash = malloc(sizeof(char) * 50); 
-    char *rightHash = malloc(sizeof(char) * 50);
+    pthread_t leftSide;
+    pthread_t rightSide;
+    char* leftHash = malloc(sizeof(char) * 50);
+    char* rightHash = malloc(sizeof(char) * 50);
 
-    char *hash = malloc(sizeof(char) * 32); // create hash string
-    off_t offset = (params->id * params->numToParse); 
-    params->data += (offset) * BSIZE; // move pointer to correct location
-    uint32_t unsignedHash; // create unsigned hash
-    unsignedHash = jenkins_one_at_a_time_hash((const uint8_t *)params->data, params->numToParse * BSIZE); // calculate hash
-    params->data -= (offset) * BSIZE; // move pointer back to beginning
-    sprintf(hash, "%u", unsignedHash); // convert hash to string
+    char* hash = malloc(sizeof(char) * 32);
+    off_t offset = (params->id * params->numToParse); // calculate offset
+    params->data += (offset) * BSIZE; // move pointer to the correct location
+    uint32_t unsignedHash;
+    unsignedHash = jenkins_one_at_a_time_hash((const uint8_t*)params->data, params->numToParse * BSIZE);
+    params->data -= (offset) * BSIZE; // move pointer back to the beginning
+    sprintf(hash, "%u", unsignedHash); // convert hash value to string
 
-    if (left <= params->numThreads && right <= params->numThreads) { // if there are more than 1 threads
-        struct thread_data leftData; // create left child thread_data struct
-        leftData.id = params->id; 
-        leftData.numThreads = params->numThreads;
-        leftData.data = params->data;
-        leftData.id = left;
-        leftData.numToParse = params->numToParse; 
-        pthread_create(&leftSide, NULL, treeHash, &leftData); // create left child thread
-        struct thread_data rightData; // create right child thread_data struct
-        rightData.size = params->size; 
-        rightData.numThreads = params->numThreads;
-        rightData.data = params->data;
-        rightData.id = right;
-        rightData.numToParse = params->numToParse;
-        pthread_create(&rightSide, NULL, treeHash, &rightData); // create right child thread
-        pthread_join(leftSide, (void**)&leftHash); // join left child thread
-        pthread_join(rightSide, (void**)&rightHash); // join right child thread
-        strcat(hash, leftHash); // concatenate left hash to hash
-        strcat(hash, rightHash); // concatenate right hash to hash
-        uint64_t length = strlen(hash); // get length of hash
-        unsignedHash = jenkins_one_at_a_time_hash((const uint8_t *)hash, length); // calculate parent hash
-        sprintf(hash, "%u", unsignedHash);  // convert hash to string
-    } else if (left == params -> numThreads) { // if there is only 1 thread
-        struct thread_data leftData; // create left child thread_data struct
-        leftData.size = params->size;
-        leftData.numThreads = params->numThreads;
-        leftData.data = params->data;
-        leftData.id = left;
-        leftData.numToParse = params->numToParse; 
-        pthread_create(&leftSide, NULL, treeHash, &leftData); // create left child thread
-        pthread_join(leftSide, (void**)&leftHash); // join left child thread
-        strcat(hash, leftHash); // concatenate left hash to hash
-        uint64_t length = strlen(hash); 
-        unsignedHash = jenkins_one_at_a_time_hash((const uint8_t *)hash, length); // calculate parent hash
-        sprintf(hash, "%u", unsignedHash); // convert hash to string
+    if (left <= params->numThreads && right <= params->numThreads) { // if there are 2 children
+        struct thread_data leftData = initializeChild(params, left); // initialize left child
+        pthread_create(&leftSide, NULL, treeHash, &leftData); // create left child
+        struct thread_data rightData = initializeChild(params, right); // initialize right child
+        pthread_create(&rightSide, NULL, treeHash, &rightData); // create right child
+        pthread_join(leftSide, (void**)&leftHash); 
+        pthread_join(rightSide, (void**)&rightHash);
+        strcat(hash, leftHash);
+        strcat(hash, rightHash);
+        uint64_t length = strlen(hash);
+        unsignedHash = jenkins_one_at_a_time_hash((const uint8_t*)hash, length); // calculate hash value
+        sprintf(hash, "%u", unsignedHash); // convert hash value to string
+    } else if (left == params->numThreads) { // if there is only 1 child
+        struct thread_data leftData = initializeChild(params, left); // initialize left child
+        pthread_create(&leftSide, NULL, treeHash, &leftData); // create left child
+        pthread_join(leftSide, (void**)&leftHash);
+        strcat(hash, leftHash);
+        uint64_t length = strlen(hash);
+        unsignedHash = jenkins_one_at_a_time_hash((const uint8_t*)hash, length); // calculate hash value
+        sprintf(hash, "%u", unsignedHash); // convert hash value to string
     }
 
-    free(leftHash); 
-    free(rightHash);
+    free(leftHash); // free memory
+    free(rightHash); // free memory
     pthread_exit((void*)hash); // exit thread
 }
 
-void Usage(char* s) 
-{
+
+struct thread_data initializeChild(struct thread_data* params, int id) {
+    struct thread_data thread; // create left child thread_data struct
+    thread.size = params->size;
+    thread.numThreads = params->numThreads;
+    thread.data = params->data;
+    thread.id = id;
+    thread.numToParse = params->numToParse; 
+    return thread;
+}
+
+void Usage(char* s) {
   fprintf(stderr, "Usage: %s filename num_threads \n", s);
   exit(EXIT_FAILURE);
 }
+
