@@ -6,6 +6,12 @@ This project is a command-line interpreter or shell implementation written in C.
 
 The shell executable is named `sish`, and the source code is located in `sish.c`.
 
+## Compilation
+
+To compile the shell, use the following command:
+
+         gcc sish.c –o sish -Wall -Werror -std=gnu99
+
 ## Usage
 
 1. The shell runs continuously and displays a prompt when waiting for input. The prompt is exactly `sish> `, including the space after the greater than sign. For example:
@@ -32,6 +38,14 @@ The shell supports the following built-in commands:
 The shell supports the execution of a sequence of programs that communicate through pipes. Multiple processes can communicate through pipes, not just two. To use pipes, the shell replaces the standard input and output file descriptors using `dup2()`.
 
 Note: The shell does not provide built-in commands specifically designed to work with pipes.
+
+## Dependencies
+
+The hash-tree program has the following dependencies:
+
+- C compiler (e.g., GCC)
+
+Ensure that you have a compatible C compiler installed.
 
 ## Disclaimer
 
