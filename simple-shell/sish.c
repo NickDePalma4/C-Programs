@@ -29,7 +29,7 @@ void addHistory(char *command) {
     }
 }
 
-// Gets user input and adds calls addHistory()
+// Gets user input
 char* getInput() { 
     char *input = NULL;
     size_t length = 0;
@@ -39,8 +39,34 @@ char* getInput() {
     }
     int modifier = strlen(input) - 1; 
     input[modifier] = '\0'; // Insert null terminator
-    addHistory(input); // Add input to history array
     return input; // Return input string
+}
+
+// Adds spaces around pipe symbols in a string
+char* spacePipe(const char* input) {
+    size_t inputLength = strlen(input);
+    char* modified = malloc((inputLength * 2 + 3) * sizeof(char)); // Allocate memory for modified string
+
+    if (modified == NULL) { // malloc error
+        printf("ERROR: Allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t j = 0;
+
+    for (size_t i = 0; i < inputLength; i++) {
+        if (input[i] == '|') {
+            modified[j++] = ' '; // Add space before pipe
+            modified[j++] = '|'; // Add pipe
+            modified[j++] = ' '; // Add space after pipe
+        } else {
+            modified[j++] = input[i]; // Copy other characters as-is
+        }
+    }
+
+    modified[j] = '\0'; // Add null terminator
+
+    return modified;
 }
 
 // Returns an array of tokenized strings that are tokenized by a space
@@ -52,9 +78,13 @@ char** tokenize(char* string) {
     char **argList;
     int numArgs = 0; 
 
+    if (strchr(input, '|') != NULL) {
+        input = spacePipe(input); // If there is a pipe in the string, call spacePipe() to add spaces around it
+    }
+
     for (int i = 0; input[i] != '\0'; i++) { // Find number of words in the string
-        if ((input[i] == ' ' && input[i + 1] != ' ')|| input[i + 1] == '\0') {
-            numArgs++; // Increases each time there is a space or the string ends
+        if ((input[i] == ' ' && input[i + 1] != ' ') || input[i] == '|' || input[i + 1] == '\0') {
+            numArgs++; // Increases each time there is a space, pipe, or the string ends
         }
     }
 
@@ -242,17 +272,21 @@ int execute(char **command) {
 void start() {
     char *input = NULL; // User input
     char **argList = NULL; // Tokenized input
+    char *historyAdder = NULL; // Used to add history to the array
     int status; // Process status
 
     // Execute at least once
     do {
         printf("sish> "); // Print prompt
         input = getInput(); // Call getInput() to assign to input
+        historyAdder = strdup(input); // Copy input to historyAdder
         argList = tokenize(input); // Call tokenize() to assign tokenized input array to argList
         status = execute(argList); // Assigns the process status to status that only returns 0 if exit is called
+        addHistory(historyAdder); // Adds the input to the history array
 
         free(input); // Frees the memory input was taking up that was allocated in getInput()
         free(argList); // Frees the memory argList was taking up that was allocated in tokenize()
+        free(historyAdder); // Frees the memory historyAdder was taking up that was allocated in strdup()
     } while (status); // Checks if exit has been called and stops the loop accordingly
 }
 
